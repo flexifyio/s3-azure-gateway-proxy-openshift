@@ -1,0 +1,160 @@
+# Default values for flexify.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+namespace: flexify
+
+labels:
+  app.kubernetes.io/component: flexify
+  app.kubernetes.io/name: flexify
+  app.kubernetes.io/part-of: flexify
+  app.kubernetes.io/version: 0.0.1 
+  prometheus.io/scrape-prometheus: "true"
+
+annotations:  
+  service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+  service.beta.kubernetes.io/azure-load-balancer-internal-subnet: "app_comp1"
+
+helm:
+  labels:
+    app.kubernetes.io/managed-by: "Helm"
+  annotations:
+    meta.helm.sh/release-name: "flexify"
+    meta.helm.sh/release-namespace: "flexify"
+
+deployment:
+  replicaCount: 1
+  matchLabels:  
+    app.kubernetes.io/component: flexify
+    app.kubernetes.io/name: flexify
+    app.kubernetes.io/part-of: flexify
+  image: flexifyio/proxy:edge
+  pullPolicy: IfNotPresent
+  ports:  
+    - name: https
+      containerPort: 8443 
+    - name: prom
+      containerPort: 50791
+
+resources:
+  requests:
+    memory: "1G" 
+    cpu: "500m"     
+    ephemeral-storage: "1Gi"
+  limits:
+    memory: "2G"  
+    cpu: "1"      
+    ephemeral-storage: "1Gi"
+
+livenessProbe:
+  exec:
+    command:
+      - /bin/bash
+      - -c
+      - "/opt/scripts/health_check.sh -l"
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3
+readinessProbe:
+  exec:
+    command:
+      - /bin/bash
+      - -c
+      - "/opt/scripts/health_check.sh -r"
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3
+
+service:
+  ports:  
+    - name: https
+      port: 443  
+      targetPort: 8443
+    - name: prom
+      port: 8092
+      targetPort: 50791
+  selector:  
+    app.kubernetes.io/component: flexify
+    app.kubernetes.io/name: flexify
+    app.kubernetes.io/part-of: flexify
+
+pvc:
+  name: flexify-log-claim  
+  storageClassName: <storage-class-name> # Please fill
+  storage: 1Gi
+
+appProperties:
+  FLEXIFY_ENGINE_CLOUD: AZURE
+  FLEXIFY_ENGINE_CLOUD_KEY_ID: <storage-account-name> # Please fill
+  FLEXIFY_ENGINE_PORT: "8080"
+  FLEXIFY_ENGINE_SSL_PORT: "8443"
+  FLEXIFY_ENGINE_KEY_ID: dummy
+  FLEXIFY_ENGINE_ENDPOINT: "flexify-service.flexify.svc.cluster.local"
+  FLEXIFY_ENGINE_PROMETHEUS_PORT: "50791"
+
+appKeys:
+  FLEXIFY_ENGINE_CLOUD_SECRET_KEY: "<base64 enc storage account key>" # Please fill
+  FLEXIFY_ENGINE_SECRET_KEY: "<base64 enc secret key>" # Please fill
+
+spec:
+  dnsNames:
+    - flexify-service.flexify.svc.cluster.local
+
+#ConfigMaps
+script:
+  cmName: flexify-scripts
+app:
+  cmName: flexify-properties
+
+#Secrets
+keys:
+  secretName: flexify-keys
+cert:
+  secretName: flexify-k8s-cert
+
+  
+  # # Overrides the image tag whose default is the chart appVersion.
+  # tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+# autoscaling:
+#   enabled: false
+#   minReplicas: 1
+#   maxReplicas: 100
+#   targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

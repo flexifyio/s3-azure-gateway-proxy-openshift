@@ -1,0 +1,63 @@
+apiVersion: v1 
+kind: ConfigMap 
+metadata:
+  name: app-scripts
+  namespace: flexify
+data:
+# {{ (.Files.Glob "scripts/health_check.sh").AsConfig | indent 2 }}
+  health_check.sh: | 
+    #!/bin/bash
+
+    if [ $# -eq 0 ]; then
+    echo "Error: No arguments provided"
+    echo "Usage: $0 --liveness|-l --readiness|-r"
+    exit 1
+    fi
+
+    liveness_log_file="/var/log/flexify/engine/liveness_probe.log"
+    readiness_log_file="/var/log/flexify/engine/readiness_probe.log"
+
+    l_log () {
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [Liveness Probe] $1" >> $liveness_log_file
+    }
+
+    r_log () {
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [Readiness Probe] $1" >> $readiness_log_file
+    }
+
+    check_app_running () {
+        l_log "INFO: Checking Application availability ..."
+        res=$(curl -s -w "%{http_code}" http://localhost:8443)
+        if [ $res != "403" ]; then
+            l_log "ERROR: Application not running or running with errors, HTTP status - $res"; exit 1
+        else 
+            l_log "INFO: Application running fine, HTTP status - $res"
+        fi 
+    }
+
+    check_storage_conn () {
+        echo "Check for Connection to backend storage"
+    }
+
+    check_db_conn () {
+        echo "Check for Connection to Database"
+    }
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+        --liveness|-l)
+        check_app_running
+        l_log "INFO: Liveness probes passing"
+        ;;
+        --readiness|-r)
+        check_app_running
+        check_storage_conn
+        check_db_conn
+        r_log "INFO: Readiness probes passing"
+        ;;
+        *)
+        echo "Unknown option: $1"
+        ;;
+        esac
+    shift # Move to the next argument
+    done

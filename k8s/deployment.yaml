@@ -1,0 +1,124 @@
+apiVersion: apps/v1  
+kind: Deployment  
+metadata:  
+  name: flexify-deployment  
+  namespace: flexify
+  labels:
+    app.kubernetes.io/component: flexify
+    app.kubernetes.io/name: flexify
+    app.kubernetes.io/part-of: flexify
+    app.kubernetes.io/version: 0.0.1 
+spec:  
+  replicas: 1
+  selector:  
+    matchLabels:  
+      app.kubernetes.io/component: flexify
+      app.kubernetes.io/name: flexify
+      app.kubernetes.io/part-of: flexify
+  template:  
+    metadata:  
+      labels:  
+        app: flexify  
+        app.kubernetes.io/component: flexify
+        app.kubernetes.io/name: flexify
+        app.kubernetes.io/part-of: flexify
+        app.kubernetes.io/version: 0.0.1 
+    spec: 
+      # securityContext:
+      #   sysctls:
+      #   - name: "net.ipv4.ip_unprivileged_port_start"
+      #     value: "0"
+      # initContainers:
+      # - name: init-container
+      #   image: busybox
+      #   resources:
+      #     requests:
+      #       memory: "1G" 
+      #       cpu: "500m"     
+      #       ephemeral-storage: "1Gi"
+      #     limits:
+      #       memory: "2G"  
+      #       cpu: "1"      
+      #       ephemeral-storage: "1Gi"
+      #   command: ["sh", "-c", "chmod -R 777 /var/lib/flexify"]
+      #   volumeMounts:
+      #   - name: flexify-log
+      #     mountPath: /var/lib/flexify 
+      containers:  
+        - name: flexify  
+          image: flexifyio/proxy:edge #flexifyio/engine:edge-extra
+          # command: ["env"]
+          imagePullPolicy: Always
+          resources:
+            requests:
+              memory: "1G" 
+              cpu: "500m"     
+              ephemeral-storage: "1Gi"
+            limits:
+              memory: "2G"  
+              cpu: "1"      
+              ephemeral-storage: "1Gi"
+          envFrom:
+            - secretRef:
+                name: flexify-keys
+            # - secretRef:
+            #     name: flexify-certs
+            - configMapRef:
+                name: app-properties
+          env:
+            - name: FLEXIFY_ENGINE_SSL_CERT
+              valueFrom:
+                secretKeyRef:
+                  name: flexify-k8s-cert
+                  key: tls.crt
+            - name: FLEXIFY_ENGINE_SSL_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: flexify-k8s-cert
+                  key: tls.key
+          ports:  
+            - name: https
+              containerPort: 8443 
+            - name: prom
+              containerPort: 50791
+            # - containerPort: 443  
+          livenessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - "/opt/scripts/health_check.sh -l"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - "/opt/scripts/health_check.sh -r"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          volumeMounts:  
+            # - mountPath: /var/log/flexify/engine/  
+            - mountPath: /var/lib/flexify/engine/
+              name: flexify-log  
+            - mountPath: /opt/scripts/
+              name: flexify-scripts
+      volumes:  
+        - name: flexify-log  
+          persistentVolumeClaim:  
+            claimName: flexify-log-claim 
+        # - name: flexify-log  
+        #   emptyDir:
+        #     medium: Memory
+        #     sizeLimit: 64Mi
+        - name: flexify-scripts
+          configMap:
+            name: app-scripts
+            defaultMode: 0777

@@ -1,0 +1,23 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: flexify-k8s-cert
+  namespace: flexify
+  labels:
+    app.kubernetes.io/component: flexify
+    app.kubernetes.io/name: flexify
+    app.kubernetes.io/part-of: flexify
+    app.kubernetes.io/version: 0.0.1 
+spec:
+  #commonName: "x.xx.x.xxx"
+  dnsNames:
+    - flexify-service.ama-stg.svc.cluster.local
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: paas
+  secretName: flexify-k8s-cert
+  usages:
+    - digital signature
+    - key encipherment
+ 

@@ -1,0 +1,81 @@
+apiVersion: apps/v1  
+kind: Deployment  
+metadata:  
+  name: {{ .Chart.Name }}-deployment  
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- with .Values.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.helm.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:  
+    {{- with .Values.helm.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:  
+  replicas: {{ .Values.deployment.replicaCount }}
+  selector:  
+    matchLabels:  
+    {{- with .Values.deployment.matchLabels }}
+    {{- toYaml . | nindent 6 }}
+    {{- end }}
+  template:  
+    metadata:  
+      labels:  
+    {{- with .Values.labels }}
+    {{- toYaml . | nindent 8 }}
+    {{- end }}
+    spec: 
+      containers:  
+        - name: {{ .Chart.Name }}  
+          image: {{ .Values.deployment.image }} #flexifyio/engine:edge-extra
+          # command: ["env"]
+          imagePullPolicy: {{ .Values.deployment.pullPolicy }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.keys.secretName }} 
+            - configMapRef:    
+                name: {{ .Values.app.cmName }} 
+          env:
+            - name: FLEXIFY_ENGINE_SSL_CERT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.cert.secretName }} 
+                  key: tls.crt
+            - name: FLEXIFY_ENGINE_SSL_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.cert.secretName }} 
+                  key: tls.key
+          ports:  
+            {{- range .Values.deployment.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .containerPort }}
+            {{- end }}
+            # - containerPort: 443  
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          volumeMounts:  
+            # - mountPath: /var/log/flexify/engine/  
+            - mountPath: /var/lib/flexify/engine/
+              name: {{ .Chart.Name }}-log  
+            - mountPath: /opt/scripts/
+              name: {{ .Chart.Name }}-scripts
+      volumes:  
+        - name: {{ .Chart.Name }}-log  
+          persistentVolumeClaim:  
+            claimName: {{ .Values.pvc.name }} 
+        # - name: flexify-log  
+        #   emptyDir:
+        #     medium: Memory
+        #     sizeLimit: 64Mi
+        - name: {{ .Chart.Name }}-scripts
+          configMap:
+            name: {{ .Values.script.cmName }} 
+            defaultMode: 0777

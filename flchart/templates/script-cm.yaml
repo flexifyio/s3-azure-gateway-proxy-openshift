@@ -1,0 +1,8 @@
+apiVersion: v1 
+kind: ConfigMap 
+metadata:
+  name: {{ .Values.script.cmName }} 
+  namespace: {{ .Values.namespace }}  
+data:
+  health_check.sh: |
+{{ .Files.Get "scripts/health_check.sh" | indent 4 }}
